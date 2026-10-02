@@ -24,6 +24,7 @@ SET SaleDate = CONVERT(Date,SaleDate)
 
 ALTER TABLE NatshvilleHousing 
 Add SaleDateCom date;
+GO
 
 
 Update NatshvilleHousing 
@@ -80,6 +81,7 @@ From NatshvilleHousing
 
 ALTER TABLE NatshvilleHousing 
 Add PropertySplitAddress Nvarchar(255);
+GO
 
 Update NatshvilleHousing 
 SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', PropertyAddress) -1 )
@@ -87,6 +89,7 @@ SET PropertySplitAddress = SUBSTRING(PropertyAddress, 1, CHARINDEX(',', Property
 
 ALTER TABLE NatshvilleHousing 
 Add PropertySplitCity Nvarchar(255);
+GO
 
 Update NatshvilleHousing 
 SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddress) + 1 , LEN(PropertyAddress))
@@ -115,6 +118,7 @@ From NatshvilleHousing
 
 ALTER TABLE NatshvilleHousing 
 Add OwnerSplitAddress Nvarchar(255);
+GO
 
 Update NatshvilleHousing 
 SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
@@ -122,6 +126,7 @@ SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 3)
 
 ALTER TABLE NatshvilleHousing 
 Add OwnerSplitCity Nvarchar(255);
+GO
 
 Update NatshvilleHousing 
 SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
@@ -130,6 +135,7 @@ SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 2)
 
 ALTER TABLE NatshvilleHousing 
 Add OwnerSplitState Nvarchar(255);
+GO
 
 Update NatshvilleHousing 
 SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.') , 1)
@@ -178,7 +184,7 @@ SET SoldAsVacant = CASE When SoldAsVacant = 'Y' THEN 'Yes'
 
 -- Remove Duplicates
 
-WITH RowNumCTE AS(
+;WITH RowNumCTE AS(
 Select *,
 	ROW_NUMBER() OVER (
 	PARTITION BY ParcelID,
@@ -198,7 +204,7 @@ Where row_num > 1
 Order by PropertyAddress
 
 
-WITH RowNumCTE AS(
+;WITH RowNumCTE AS(
 Select *,
 	ROW_NUMBER() OVER (
 	PARTITION BY ParcelID,
@@ -217,7 +223,7 @@ From RowNumCTE
 Where row_num > 1
 --Order by PropertyAddress
 
-WITH RowNumCTE AS(
+;WITH RowNumCTE AS(
 Select *,
 	ROW_NUMBER() OVER (
 	PARTITION BY ParcelID,
@@ -251,4 +257,4 @@ From NatshvilleHousing
 
 
 ALTER TABLE NatshvilleHousing 
-DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate, SaleDateConverted, ConvertedSaleDate
+DROP COLUMN OwnerAddress, TaxDistrict, PropertyAddress, SaleDate

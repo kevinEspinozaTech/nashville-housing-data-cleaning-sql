@@ -28,8 +28,8 @@ Raw operational data is rarely ready for analysis. This project practises turnin
 
 | Item | Detail |
 |---|---|
-| Source | The course distributes the dataset as `Nashville Housing Data for Data Cleaning.xlsx` in [AlexTheAnalyst/PortfolioProjects](https://github.com/AlexTheAnalyst/PortfolioProjects). That this exact file was used here, and where the data originally comes from: **Source pending verification.** |
-| Included in this repo | **No.** The data is not included. |
+| Source | Course file [`Nashville Housing Data for Data Cleaning.xlsx`](https://github.com/AlexTheAnalyst/PortfolioProjects) from AlexTheAnalyst/PortfolioProjects: 56,477 rows, 19 columns. The results below were produced from this file (SHA-256 `168835b6…cf48fd8`). Where the data originally comes from before the course: **Source pending verification.** |
+| Included in this repo | **No.** [`data-prep/`](data-prep/) contains the scripts that convert the Excel file, create the table and load it. |
 
 ### Expected schema
 
@@ -77,33 +77,56 @@ WHERE row_num > 1
 
 ```
 .
-├── CleaningDataSQL.sql   # Cleaning script, in execution order
+├── CleaningDataSQL.sql          # Cleaning script, runnable end to end
+├── data-prep/
+│   ├── prepare_nashville.py     # Excel → TSV (requires openpyxl)
+│   ├── create_table.sql         # Creates the database and the table
+│   ├── load_with_bcp.cmd        # Loads the table with bcp
+│   └── quality_checks.sql       # Before/after data-quality checks
 └── README.md
 ```
 
 ## Results
 
-The repository contains only the script, with no saved output, row counts or before/after extracts. **No numerical results are claimed.** The result of running the script is a cleaned version of the input table with split address columns, standardised values and no duplicate sales.
+Measured with `data-prep/quality_checks.sql` before and after running `CleaningDataSQL.sql` on SQL Server 2025 (2026-10-02):
+
+| Check | Before | After |
+|---|---|---|
+| Rows | 56,477 | **56,373** (104 duplicate sales removed) |
+| Columns | 19 | 21 (address, city and state split out; unused columns dropped) |
+| Missing property addresses | 29 | **0** (filled from other sales of the same parcel) |
+| `SoldAsVacant` values | 4 (`No` 51,403 · `Yes` 4,623 · `N` 399 · `Y` 52) | **2** (`No` 51,704 · `Yes` 4,669) |
+| Remaining duplicates by the same key | 103 before filling the addresses | **0** |
+
+The script removes 104 rows, one more than the 103 duplicates counted at the start. Filling the missing addresses reveals one more duplicate, because the duplicate key includes `PropertyAddress`.
 
 ## How to run
 
-1. Download the course dataset (see *Dataset and source*).
-2. In SSMS, import it with the SQL Server Import and Export Wizard as a table called `NatshvilleHousing`.
-3. **Work on a copy.** The script runs `UPDATE`, `DELETE` and `DROP COLUMN` statements that change the table permanently.
-4. Run `CleaningDataSQL.sql` one block at a time and check each `SELECT` before the `UPDATE` that follows it.
+1. Download the course Excel file into `data-prep/`.
+2. Run `python data-prep/prepare_nashville.py`. It writes `nashville.tsv`.
+3. Run `sqlcmd -S localhost -E -C -i data-prep/create_table.sql`, then `data-prep\load_with_bcp.cmd`.
+4. Optional: run `data-prep/quality_checks.sql` to record the "before" state.
+5. Run `sqlcmd -S localhost -E -C -d NashvillePortfolio -i CleaningDataSQL.sql`, then run the quality checks again.
+
+**Work on a copy.** The script runs `UPDATE`, `DELETE` and `DROP COLUMN` statements that change the table permanently.
 
 ## Limitations
 
-- The final `DROP COLUMN` statement lists `SaleDateConverted` and `ConvertedSaleDate`, but the script creates a column called `SaleDateCom`. On a fresh table the statement fails because those columns do not exist. Adjust the column list before running it. The original statement is kept as written.
-- `UPDATE ... SET SaleDate = CONVERT(Date, SaleDate)` does not change the column's data type. This is why the script also adds a new date column.
+- `UPDATE ... SET SaleDate = CONVERT(Date, SaleDate)` does not change the column's data type. This is why the script also adds a new date column (`SaleDateCom`).
+- `SUBSTRING(..., CHARINDEX(',', ...) + 1, ...)` keeps the space after the comma, so the split city values start with a space (for example `" GOODLETTSVILLE"`). `PARSENAME` has the same issue. `LTRIM`/`TRIM` would fix it.
 - Deleting duplicates directly from the source table cannot be undone. A production workflow would write to a staging or clean table instead.
-- The script was not packaged with data, so results cannot be reproduced from this repository alone.
+
+### Fixed issues
+
+In October 2026 the script was corrected in a separate pull request. The original version is preserved in Git history.
+
+- The final `DROP COLUMN` listed columns that are never created (`SaleDateConverted`, `ConvertedSaleDate`). It now drops only `OwnerAddress, TaxDistrict, PropertyAddress, SaleDate`.
+- The three `WITH RowNumCTE` statements now start with `;WITH`. `GO` separators were added after each `ALTER TABLE ... ADD`, so the new columns exist before they are updated. Before this change, the file could not be executed as a whole.
 
 ## Next steps
 
-- Correct the `DROP COLUMN` list in a separate, documented commit.
+- Trim the leading space in the split city and state columns.
 - Write the cleaned output to a new table or view instead of changing the raw table.
-- Add data-quality checks (row counts and null counts before and after).
 
 ## Credits
 
